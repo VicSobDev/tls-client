@@ -99,7 +99,6 @@ func (jar *cookieJar) SetCookies(u *url.URL, cookies []*http.Cookie) {
 			shouldOverwrite := false
 			for _, cookie := range uniqueCookies {
 				shouldOverwrite = existingCookie.Name == cookie.Name
-
 				if shouldOverwrite {
 					break
 				}
@@ -110,14 +109,35 @@ func (jar *cookieJar) SetCookies(u *url.URL, cookies []*http.Cookie) {
 			}
 
 			remainingExistingCookies = append(remainingExistingCookies, existingCookie)
+
 		}
+		var newCookies []*http.Cookie
+		// If there are no existing cookies, simply assign uniqueCookies to newCookies.
+		if len(remainingExistingCookies) != 0 {
 
-		newCookies := append(remainingExistingCookies, uniqueCookies...)
+			// Create a map for faster lookup of unique cookies.
+			uniqueCookieMap := make(map[string]*http.Cookie)
+			for _, cookie := range uniqueCookies {
+				uniqueCookieMap[cookie.Name] = cookie
+			}
 
-		jar.jar.SetCookies(u, newCookies)
-		jar.allCookies[hostKey] = newCookies
+			newCookies = make([]*http.Cookie, 0, len(remainingExistingCookies))
 
-		return
+			for _, existingCookie := range remainingExistingCookies {
+				if replacementCookie, exists := uniqueCookieMap[existingCookie.Name]; exists {
+					newCookies = append(newCookies, replacementCookie)
+				} else {
+					newCookies = append(newCookies, existingCookie)
+				}
+			}
+
+			jar.jar.SetCookies(u, newCookies)
+			jar.allCookies[hostKey] = newCookies
+
+			return
+		} else {
+			newCookies = uniqueCookies
+		}
 	}
 
 	var newNonExistentCookies []*http.Cookie
